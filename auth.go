@@ -1,5 +1,24 @@
 package gofakeit
 
+type PassType string
+
+const (
+	Simple PassType = "simple"
+	Words  PassType = "words"
+	Pin    PassType = "pin"
+)
+
+type PassConfig struct {
+	Type   PassType
+	Length int
+
+	Lower   bool
+	Upper   bool
+	Numeric bool
+	Special bool
+	Space   bool
+}
+
 // Username will generate a random username based upon picking a random lastname and random numbers at the end
 func Username() string {
 	return username(GlobalFaker)
@@ -16,17 +35,27 @@ func username(f *Faker) string {
 
 // Password will generate a random password.
 // Minimum number length of 5 if less than.
-func Password(lower bool, upper bool, numeric bool, special bool, space bool, num int) string {
-	return password(GlobalFaker, lower, upper, numeric, special, space, num)
+func Password(config *PassConfig) string {
+	return password(GlobalFaker, config)
 }
 
 // Password will generate a random password.
 // Minimum number length of 5 if less than.
-func (f *Faker) Password(lower bool, upper bool, numeric bool, special bool, space bool, num int) string {
-	return password(f, lower, upper, numeric, special, space, num)
+func (f *Faker) Password(config *PassConfig) string {
+	return password(f, config)
 }
 
-func password(f *Faker, lower bool, upper bool, numeric bool, special bool, space bool, num int) string {
+func password(f *Faker, config *PassConfig) string {
+	switch config.Type {
+	case Simple:
+		return simplePassword(f, config)
+	default:
+		return ""
+	}
+}
+
+func simplePassword(f *Faker, config *PassConfig) string {
+	num := config.Length
 	// Make sure the num minimum is at least 5
 	if num < 5 {
 		num = 5
@@ -35,23 +64,23 @@ func password(f *Faker, lower bool, upper bool, numeric bool, special bool, spac
 	// Setup weights
 	items := make([]any, 0)
 	weights := make([]float32, 0)
-	if lower {
+	if config.Lower {
 		items = append(items, "l")
 		weights = append(weights, 4)
 	}
-	if upper {
+	if config.Upper {
 		items = append(items, "u")
 		weights = append(weights, 4)
 	}
-	if numeric {
+	if config.Numeric {
 		items = append(items, "n")
 		weights = append(weights, 3)
 	}
-	if special {
+	if config.Special {
 		items = append(items, "e")
 		weights = append(weights, 2)
 	}
-	if space {
+	if config.Space {
 		items = append(items, "a")
 		weights = append(weights, 1)
 	}
@@ -91,10 +120,14 @@ func password(f *Faker, lower bool, upper bool, numeric bool, special bool, spac
 
 	// Replace first or last character if it's a space, and other options are available
 	if b[0] == ' ' {
-		b[0] = password(f, lower, upper, numeric, special, false, 1)[0]
+		config.Space = false
+		config.Length = 1
+		b[0] = simplePassword(f, config)[0]
 	}
 	if b[len(b)-1] == ' ' {
-		b[len(b)-1] = password(f, lower, upper, numeric, special, false, 1)[0]
+		config.Space = false
+		config.Length = 1
+		b[len(b)-1] = simplePassword(f, config)[0]
 	}
 
 	return string(b)
@@ -157,7 +190,17 @@ func addAuthLookup() {
 				return nil, err
 			}
 
-			return password(f, lower, upper, numeric, special, space, length), nil
+			config := PassConfig{
+				Type:    Simple,
+				Length:  length,
+				Lower:   lower,
+				Upper:   upper,
+				Numeric: numeric,
+				Special: special,
+				Space:   space,
+			}
+
+			return password(f, &config), nil
 		},
 	})
 }
